@@ -1,0 +1,198 @@
+---
+title: "Project3BellaBeat"
+author: "Jade"
+date: "2022-09-01"
+output: html_document
+---
+
+## set working directory (R Script --> Session --> Set Working directory --> select CSV file using read_csv("")) 
+Importing Data using readR
+Dataset renamed: daily_activity
+```{r Importing Data}
+library(readr)
+daily_activity <- read_csv("dailyActivity_merged.csv")
+```
+
+## Initial Summary Information
+```{r Summary Information}
+
+colnames(daily_activity)
+str(daily_activity)
+head(daily_activity)
+summary(daily_activity)
+
+```
+
+## Data Cleaning using janitor 
+
+* Column names filtered for characters, numbers, and underscores
+* Check data type for ActivityDate column
+* Count cells with no values
+* Check number of unique Ids
+* Check range of dates
+* UniqueIdActivityDate has the same number of observations and variables compared to original data set (daily_activity) when accounting for unique Id by ActivityDate
+```{r Data Cleaning}
+
+library(janitor)
+clean_names(daily_activity)
+typeof(daily_activity$ActivityDate)
+sum(is.na(daily_activity))
+
+library(tidyverse)
+daily_activity %>% group_by(Id)
+unique(daily_activity$Id)
+daily_activity %>% group_by(ActivityDate)
+
+IdCount <- count(daily_activity, Id)
+ActivityDateCount <- count(daily_activity, ActivityDate)
+UniqueIdActivityDate <- daily_activity %>% distinct(Id, ActivityDate, .keep_all = TRUE)
+
+```
+
+
+##  FitBit: Total Steps Per Day
+FitBit: Total Steps Per Day
+Data collected from 33 individuals from March 12, 2016 to May 12, 2016
+Data collected by Amazon survey and submitted to Kaggle by Möbius
+```{r}
+
+  ggplot(data = daily_activity, aes(x=ActivityDate, y=TotalSteps, group=1, color = Id)) +
+    geom_line()+
+    geom_point() +
+    facet_wrap(~Id)
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(title="FitBit: Total Steps Per Day", subtitle="Data collected from 33 individuals from March 12, 2016 to May 12, 2016", caption="Data collected by Amazon survey and submitted to Kaggle by Möbius")
+  
+large_color_range <- colorRampPalette(c("blue", "green", "yellow", "orange", "red", "pink", "purple", "black"))  
+  new_colors <- large_color_range(33)
+  
+ggplot(data = daily_activity, aes(x=ActivityDate, y=TotalSteps, group=1, color = Id)) +
+    geom_point() +
+    scale_colour_gradientn(colors = new_colors) +
+    theme(axis.text.x = element_text(angle = 90))
+
+```
+
+
+## Importing Data using readR
+Dataset renamed: sleep
+
+```{r}
+library(readr)
+sleep <- read_csv("sleepDay_merged.csv")
+
+library(tidyr)
+sleepDay <- separate(sleep, 'SleepDay', into=c('Date', 'Time'), sep = ' ')
+
+```
+
+
+## Creating data sets in environment 
+24 Ids
+```{r}
+
+entry_perId <- sleepDay %>%
+  group_by(Id) %>%
+  summarize(sumTotalSleepRecords = sum(TotalSleepRecords))
+
+  # assigned secondary Id (1-24) so the X-axis Ids can be equidistant 
+new_entry_perId <- entry_perId %>%
+  mutate(new_Id = c(1:24))
+
+  # mean, min, max total number of records per Id
+new_entry_perId %>%
+  summarize(mean_nrecords = mean(sumTotalSleepRecords), min_nrecords = min(sumTotalSleepRecords), max_nrecords = max(sumTotalSleepRecords))
+
+  # bar graph showing number of sleep records per Id
+new_entry_perId %>% 
+  ggplot(aes(x = new_Id, y = sumTotalSleepRecords, fill = new_Id)) + 
+  geom_col() +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title="Total Number of Sleep Records Per Id", caption= "mean = 19.2, min = 1, max = 39")
+
+
+## TotalMinutesAsleep per Date per Id
+
+TotalMinAsleep_perId_perDate <- sleepDay %>%
+  group_by(Id, Date) %>%
+  summarize(sumTotalMinAsleep = sum(TotalMinutesAsleep))
+
+    # 24 unique Ids
+TotalMinAsleep_perId_perDate %>%
+  group_by(Id) %>%
+  count()
+
+    # ggplot
+large_color_range <- colorRampPalette(c("blue", "green", "yellow", "orange", "red", "pink", "purple", "black"))  
+new_colors <- large_color_range(24)
+
+## don't really need this one..:   individual geom_point + geom_line + color needed for each Id in the code? to get a proper line graph? Otherwise dataset needs to be organized differently.       
+  TotalMinAsleep_perId_perDate %>%
+  ggplot(mapping=aes(x= Date, y= sumTotalMinAsleep, color= Id)) +
+  geom_point() + 
+  scale_colour_gradientn(colors = new_colors) +
+  theme(legend.position = "right") +
+  theme(axis.text.x = element_text(angle = 80))
+
+## TotalTimeInBed per Date per Id
+
+TotalTimeInBed_perId_perDay <- sleepDay %>%
+  group_by(Id, Date) %>%
+summarize(sumTotalTimeInBed = sum(TotalTimeInBed))
+
+
+## don't really need this one..:          
+  TotalTimeInBed_perId_perDay %>%
+  ggplot(mapping=aes(x= Date, y= sumTotalTimeInBed, color= Id)) +
+  geom_point() + 
+  scale_colour_gradientn(colors = new_colors) +
+  theme(axis.text.x = element_text(angle = 80))
+
+
+```
+
+
+## Importing Data using readR
+Dataset renamed: weight
+8 Ids
+```{r}
+
+library(readr)
+
+weight <- read_csv("weightLogInfo_merged.csv")
+
+unique_weightId <- weight %>%
+  distinct(weight$Id)
+
+  # number of logs per Id (length is equivalent to COUNT in SQL or COUNTA in Google Sheets)
+numlogs_perId <- weight %>%
+  group_by(Id) %>%
+  summarize(n_of_logs = length(LogId))
+
+  # assigned new Id numbers so X axis is equidistant 
+newId_numlogs_perId <- numlogs_perId %>%
+  mutate(new_Id = c(1:8))
+
+  # number of logs per Id // geom_col() used when values are contained within data set vs geom_bar which will default count
+
+newId_numlogs_perId %>%
+  ggplot(aes(x = new_Id, y = n_of_logs, fill = new_Id)) +
+  geom_col() 
+
+
+```
+
+## Summary comparison among the 3 data sets
+```{r}
+## 33 daily activity records, 24 sleep records, 8 weight records
+
+variables <- c("daily_activity", "sleep_records", "weight_records")
+n_Ids_perlog <- c(33, 24, 8)
+
+group_totals <- data.frame(variables, n_Ids_perlog)
+
+ggplot(data=group_totals) +
+  geom_col(mapping=aes(x = variables, y = n_Ids_perlog, fill = variables)) 
+
+
+```
